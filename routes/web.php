@@ -2,9 +2,6 @@
 
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\ZipCodeController;
-
-Route::get('/', [ZipCodeController::class, 'index'])->name('zipcodes.index');
 
 Route::get('/', function () {
     return view('welcome');
@@ -15,11 +12,9 @@ Route::get('/dashboard', function () {
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
-    Route::get('/export-csv', [ZipCodeController::class, 'exportCsv'])->name('zipcodes.csv');
-    Route::get('/export-pdf', [ZipCodeController::class, 'exportPdf'])->name('zipcodes.pdf');
-    Route::post('/send-email', [ZipCodeController::class, 'sendEmail'])->name('zipcodes.email');
-    
-    // Ide jöhetnek a módosító (edit, update) route-ok is
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
 require __DIR__.'/auth.php';
