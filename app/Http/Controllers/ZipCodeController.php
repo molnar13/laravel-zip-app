@@ -2,65 +2,87 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\ZipCode;
+use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\ZipExportMail;
 
 class ZipCodeController extends Controller
 {
-    // 1. Keresés és listázás
+    // 1. Listázás és Keresés
     public function index(Request $request)
     {
         $query = ZipCode::query();
 
-        if ($request->has('search')) {
+        if ($request->filled('search')) {
             $searchTerm = $request->search;
             $query->where('city', 'like', '%' . $searchTerm . '%')
                   ->orWhere('zip_code', 'like', '%' . $searchTerm . '%');
         }
 
-        $zipCodes = $query->paginate(20);
+        // 20 elem oldalanként, megtartva a keresési paramétert a lapozásnál
+        $zipCodes = $query->paginate(20)->withQueryString();
 
         return view('zipcodes.index', compact('zipCodes'));
     }
 
-    // 2. CSV Export
-    public function exportCsv()
+    // 2. Adatmódosítás (Edit űrlap) - Csak hitelesített felhasználóknak
+    public function edit(ZipCode $zipCode)
+    {
+        return view('zipcodes.edit', compact('zipCode'));
+    }
+
+    // 3. Adatmódosítás mentése (Update) - Csak hitelesített felhasználóknak
+    public function update(Request $request, ZipCode $zipCode)
+    {
+        $request->validate([
+            'zip_code' => 'required|string|max:10',
+            'city' => 'required|string|max:255',
+        ]);
+
+        $zipCode->update($request->only(['zip_code', 'city']));
+
+        return redirect()->route('zipcodes.index')->with('success', 'Adat sikeresen módosítva!');
+    }
+
+    // 4. CSV Export
+    public function exportCsv(Request $request)
     {
         $zipCodes = ZipCode::all();
         $filename = "iranyitoszamok.csv";
         $handle = fopen($filename, 'w+');
-        fputcsv($handle, ['ID', 'Irányítószám', 'Település']); // Fejléc
+        fputcsv($handle, ['ID', 'Iranyitoszam', 'Telepules']); // Fejléc
 
         foreach($zipCodes as $row) {
-            fputcsv($handle, [$row->id, $row->zip_code, $row->city]); // Cseréld a te oszlopneveidre
+            fputcsv($handle, [$row->id, $row->zip_code, $row->city]);
         }
-
         fclose($handle);
 
         return response()->download($filename)->deleteFileAfterSend(true);
     }
 
-    // 3. PDF Export
+    // 5. PDF Export
     public function exportPdf()
     {
-        $zipCodes = ZipCode::limit(100)->get(); // Érdemes limitálni, hogy ne fagyjon le a PDF generáló
+        // Limitáljuk 200-ra, hogy a PDF generáló ne fagyjon ki a 3400 adattól
+        $zipCodes = ZipCode::limit(200)->get(); 
         $pdf = Pdf::loadView('zipcodes.pdf', compact('zipCodes'));
+        
         return $pdf->download('iranyitoszamok.pdf');
     }
 
-    // 4. Email küldés PDF csatolmánnyal
+    // 6. E-mail küldés PDF csatolmánnyal
     public function sendEmail(Request $request)
     {
         $request->validate(['email' => 'required|email']);
         
-        $zipCodes = ZipCode::limit(100)->get();
+        $zipCodes = ZipCode::limit(200)->get();
         $pdf = Pdf::loadView('zipcodes.pdf', compact('zipCodes'));
 
+        // E-mail küldése a MailHog felé
         Mail::to($request->email)->send(new ZipExportMail($pdf->output()));
 
-        return back()->with('success', 'Email sikeresen elküldve a PDF csatolmánnyal!');
+        return back()->with('success', 'E-mail sikeresen elküldve a PDF csatolmánnyal!');
     }
 }

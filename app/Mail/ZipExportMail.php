@@ -23,14 +23,14 @@ class ZipExportMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Irányítószám Export',
+            subject: 'Irányítószám Export (PDF)',
         );
     }
 
     public function content(): Content
     {
         return new Content(
-            view: 'emails.zip_export', // Ezt a blade fájlt mindjárt létrehozzuk
+            view: 'emails.zip_export',
         );
     }
 
