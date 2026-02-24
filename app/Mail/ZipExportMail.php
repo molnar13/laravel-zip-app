@@ -4,10 +4,7 @@ namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
-use Illuminate\Mail\Mailables\Content;
-use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Mail\Mailables\Attachment;
 
 class ZipExportMail extends Mailable
 {
@@ -15,30 +12,19 @@ class ZipExportMail extends Mailable
 
     public $pdfContent;
 
+    // Itt kapja meg a generált PDF-et a Controllertől
     public function __construct($pdfContent)
     {
         $this->pdfContent = $pdfContent;
     }
 
-    public function envelope(): Envelope
+    // Ez a régi, de legmegbízhatóbb módja a csatolásnak Laravelben
+    public function build()
     {
-        return new Envelope(
-            subject: 'Irányítószám Export (PDF)',
-        );
-    }
-
-    public function content(): Content
-    {
-        return new Content(
-            view: 'emails.zip_export',
-        );
-    }
-
-    public function attachments(): array
-    {
-        return [
-            Attachment::fromData(fn () => $this->pdfContent, 'iranyitoszamok.pdf')
-                    ->withMime('application/pdf'),
-        ];
+        return $this->subject('Irányítószám Szűrt Export (PDF)')
+                    ->view('emails.zip_export')
+                    ->attachData($this->pdfContent, 'iranyitoszamok_szurt.pdf', [
+                        'mime' => 'application/pdf',
+                    ]);
     }
 }

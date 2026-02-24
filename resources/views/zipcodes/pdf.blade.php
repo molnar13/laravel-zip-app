@@ -19,6 +19,7 @@
                 <th>ID</th>
                 <th>Irányítószám</th>
                 <th>Település</th>
+                <th>Megye</th>
             </tr>
         </thead>
         <tbody>
@@ -27,6 +28,7 @@
                 <td>{{ $zip->id }}</td>
                 <td>{{ $zip->zip_code }}</td>
                 <td>{{ $zip->city }}</td>
+                <td>{{ $zip->county }}</td>
             </tr>
             @endforeach
         </tbody>

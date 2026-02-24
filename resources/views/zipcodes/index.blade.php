@@ -31,18 +31,31 @@
         @endif
 
         <form method="GET" action="{{ route('zipcodes.index') }}" class="mb-6 flex gap-2">
-            <input type="text" name="search" value="{{ request('search') }}" placeholder="Keresés településre vagy irányítószámra..." class="border border-gray-300 p-2 rounded w-full focus:outline-none focus:border-blue-500">
-            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded">Keresés</button>
+            <input type="text" name="search" value="{{ request('search') }}" placeholder="Település vagy irányítószám..." class="border border-gray-300 p-2 rounded w-1/3 focus:outline-none focus:border-blue-500">
+            
+            <select name="county" class="border border-gray-300 p-2 rounded w-1/3 focus:outline-none focus:border-blue-500">
+                <option value="">-- Minden Megye --</option>
+                @foreach($counties as $county)
+                    <option value="{{ $county }}" {{ request('county') == $county ? 'selected' : '' }}>
+                        {{ $county }}
+                    </option>
+                @endforeach
+            </select>
+
+            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded">Szűrés</button>
             <a href="{{ route('zipcodes.index') }}" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded">Törlés</a>
         </form>
 
         @auth
         <div class="mb-6 bg-gray-50 p-4 rounded border flex flex-wrap gap-4 items-center">
-            <a href="{{ route('zipcodes.csv') }}" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded shadow">.CSV Export</a>
-            <a href="{{ route('zipcodes.pdf') }}" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded shadow">.PDF Export</a>
+            <a href="{{ route('zipcodes.csv', request()->query()) }}" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded shadow">.CSV Export</a>
+            <a href="{{ route('zipcodes.pdf', request()->query()) }}" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded shadow">.PDF Export</a>
             
             <form method="POST" action="{{ route('zipcodes.email') }}" class="flex gap-2 ml-auto">
                 @csrf
+                <input type="hidden" name="search" value="{{ request('search') }}">
+                <input type="hidden" name="county" value="{{ request('county') }}">
+                
                 <input type="email" name="email" placeholder="E-mail cím..." required class="border border-gray-300 p-2 rounded">
                 <button type="submit" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded shadow">Küldés E-mailben</button>
             </form>
@@ -56,6 +69,7 @@
                         <th class="border p-3 text-left">ID</th>
                         <th class="border p-3 text-left">Irányítószám</th>
                         <th class="border p-3 text-left">Település</th>
+                        <th class="border p-3 text-left">Megye</th>
                         @auth <th class="border p-3 text-center">Művelet</th> @endauth
                     </tr>
                 </thead>
@@ -65,6 +79,7 @@
                         <td class="border p-3">{{ $zip->id }}</td>
                         <td class="border p-3">{{ $zip->zip_code }}</td>
                         <td class="border p-3 font-semibold">{{ $zip->city }}</td>
+                        <td class="border p-3">{{ $zip->county }}</td>
                         @auth
                         <td class="border p-3 text-center">
                             <a href="{{ route('zipcodes.edit', $zip->id) }}" class="text-blue-500 hover:underline">Módosítás</a>
@@ -73,7 +88,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="4" class="border p-4 text-center text-gray-500">Nincs találat.</td>
+                        <td colspan="5" class="border p-4 text-center text-gray-500">Nincs találat a megadott feltételekkel.</td>
                     </tr>
                     @endforelse
                 </tbody>

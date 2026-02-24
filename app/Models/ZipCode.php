@@ -13,5 +13,6 @@ class ZipCode extends Model
     protected $fillable = [
         'zip_code',
         'city',
+        'county', // Ezt a sort adtuk hozzá!
     ];
 }

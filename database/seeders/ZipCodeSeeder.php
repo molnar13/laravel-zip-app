@@ -27,12 +27,11 @@ class ZipCodeSeeder extends Seeder
                 // Biztosítjuk, hogy csak akkor mentsünk, ha van név és irányítószám
                 if (isset($item['postal_code']) && isset($item['name'])) {
                     ZipCode::updateOrCreate(
-                        // Keresési feltétel (ne duplikáljunk)
                         ['zip_code' => $item['postal_code']], 
-                        // Mit mentsünk el a mi adatbázisunkba (a korábban megírt migráció alapján)
                         [
                             'zip_code' => $item['postal_code'], 
-                            'city'     => $item['name']
+                            'city'     => $item['name'],
+                            'county'   => $item['county']['name'] ?? 'Ismeretlen' // Megye mentése
                         ]
                     );
                     $count++;

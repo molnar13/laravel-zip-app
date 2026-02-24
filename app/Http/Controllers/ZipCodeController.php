@@ -10,79 +10,84 @@ use App\Mail\ZipExportMail;
 
 class ZipCodeController extends Controller
 {
-    // 1. Listázás és Keresés
-    public function index(Request $request)
+    // Közös függvény, ami visszaadja a szűrt adatokat a listázásnak és az exportoknak is!
+    private function getFilteredQuery(Request $request)
     {
         $query = ZipCode::query();
 
         if ($request->filled('search')) {
             $searchTerm = $request->search;
-            $query->where('city', 'like', '%' . $searchTerm . '%')
+            $query->where(function($q) use ($searchTerm) {
+                $q->where('city', 'like', '%' . $searchTerm . '%')
                   ->orWhere('zip_code', 'like', '%' . $searchTerm . '%');
+            });
         }
 
-        // 20 elem oldalanként, megtartva a keresési paramétert a lapozásnál
-        $zipCodes = $query->paginate(20)->withQueryString();
+        if ($request->filled('county')) {
+            $query->where('county', $request->county);
+        }
 
-        return view('zipcodes.index', compact('zipCodes'));
+        return $query;
     }
 
-    // 2. Adatmódosítás (Edit űrlap) - Csak hitelesített felhasználóknak
+    public function index(Request $request)
+    {
+        $query = $this->getFilteredQuery($request);
+        
+        // Kinyerjük a megyéket a legördülő menühöz (ABC sorrendben)
+        $counties = ZipCode::whereNotNull('county')->distinct()->orderBy('county')->pluck('county');
+
+        $zipCodes = $query->paginate(20)->withQueryString();
+
+        return view('zipcodes.index', compact('zipCodes', 'counties'));
+    }
+
     public function edit(ZipCode $zipCode)
     {
         return view('zipcodes.edit', compact('zipCode'));
     }
 
-    // 3. Adatmódosítás mentése (Update) - Csak hitelesített felhasználóknak
     public function update(Request $request, ZipCode $zipCode)
     {
-        $request->validate([
-            'zip_code' => 'required|string|max:10',
-            'city' => 'required|string|max:255',
-        ]);
-
+        $request->validate(['zip_code' => 'required', 'city' => 'required']);
         $zipCode->update($request->only(['zip_code', 'city']));
-
         return redirect()->route('zipcodes.index')->with('success', 'Adat sikeresen módosítva!');
     }
 
-    // 4. CSV Export
     public function exportCsv(Request $request)
     {
-        $zipCodes = ZipCode::all();
+        $zipCodes = $this->getFilteredQuery($request)->get(); // Csak a szűrt adatok!
+        
         $filename = "iranyitoszamok.csv";
         $handle = fopen($filename, 'w+');
-        fputcsv($handle, ['ID', 'Iranyitoszam', 'Telepules']); // Fejléc
+        // Kódlap beállítása a magyar ékezetek miatt (BOM)
+        fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
+        fputcsv($handle, ['ID', 'Irányítószám', 'Település', 'Megye']);
 
         foreach($zipCodes as $row) {
-            fputcsv($handle, [$row->id, $row->zip_code, $row->city]);
+            fputcsv($handle, [$row->id, $row->zip_code, $row->city, $row->county]);
         }
         fclose($handle);
 
         return response()->download($filename)->deleteFileAfterSend(true);
     }
 
-    // 5. PDF Export
-    public function exportPdf()
+    public function exportPdf(Request $request)
     {
-        // Limitáljuk 200-ra, hogy a PDF generáló ne fagyjon ki a 3400 adattól
-        $zipCodes = ZipCode::limit(200)->get(); 
+        $zipCodes = $this->getFilteredQuery($request)->limit(500)->get(); // Csak a szűrt adatok!
         $pdf = Pdf::loadView('zipcodes.pdf', compact('zipCodes'));
-        
-        return $pdf->download('iranyitoszamok.pdf');
+        return $pdf->download('iranyitoszamok_szurt.pdf');
     }
 
-    // 6. E-mail küldés PDF csatolmánnyal
     public function sendEmail(Request $request)
     {
         $request->validate(['email' => 'required|email']);
         
-        $zipCodes = ZipCode::limit(200)->get();
+        $zipCodes = $this->getFilteredQuery($request)->limit(500)->get(); // Csak a szűrt adatok!
         $pdf = Pdf::loadView('zipcodes.pdf', compact('zipCodes'));
 
-        // E-mail küldése a MailHog felé
         Mail::to($request->email)->send(new ZipExportMail($pdf->output()));
 
-        return back()->with('success', 'E-mail sikeresen elküldve a PDF csatolmánnyal!');
+        return back()->with('success', 'A szűrt lista elküldve a megadott e-mail címre!');
     }
 }
